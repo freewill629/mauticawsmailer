@@ -93,6 +93,7 @@ class PublicController extends CommonFormController
      *
      * @param array $payload from Amazon SES
      */
+
     public function processJsonPayload(array $payload, $type): void
     {
         switch ($type) {
@@ -114,61 +115,55 @@ class PublicController extends CommonFormController
                 break;
             case 'Notification':
                 $message = json_decode($payload['Message'], true);
+                $notificationType = $message['notificationType'];
 
-                $this->processJsonPayload($message, $message['notificationType']);
-                break;
-            case 'Complaint':
-                foreach ($payload['complaint']['complainedRecipients'] as $complainedRecipient) {
-                    $reason = null;
-                    if (isset($payload['complaint']['complaintFeedbackType'])) {
-                        // http://docs.aws.amazon.com/ses/latest/DeveloperGuide/notification-contents.html#complaint-object
-                        switch ($payload['complaint']['complaintFeedbackType']) {
-                            case 'abuse':
-                                $reason = $this->translator->trans('mautic.email.complaint.reason.abuse');
-                                break;
-                            case 'fraud':
-                                $reason = $this->translator->trans('mautic.email.complaint.reason.fraud');
-                                break;
-                            case 'virus':
-                                $reason = $this->translator->trans('mautic.email.complaint.reason.virus');
-                                break;
-                        }
-                    }
+                if ($notificationType === 'Delivery') {
+                    // Handle delivery notification
 
-                    if (null == $reason) {
-                        $reason = $this->translator->trans('mautic.email.complaint.reason.unknown');
-                    }
-
-                    $this->transportCallback->addFailureByAddress($complainedRecipient['emailAddress'], $reason, DoNotContact::UNSUBSCRIBED);
-
-                    $this->logger->debug("Unsubscribe email '" . $complainedRecipient['emailAddress'] . "'");
-                }
-
-                break;
-            case 'Bounce':
-                if ('Permanent' == $payload['bounce']['bounceType']) {
+                } elseif ($notificationType === 'Bounce') {
+		    if ($message['bounce']['bounceType'] == 'Permanent') {
                     $emailId = null;
 
+                    if (isset($payload['mail']['headers'])) {
+                       foreach ($payload['mail']['headers'] as $header) {
+                           if ('X-EMAIL-ID' === $header['name']) {
+                               $emailId = $header['value'];
+                           }
+                       }
+                   }
+                  // Get bounced recipients in an array
+                   $bouncedRecipients = $message['bounce']['bouncedRecipients'];
+                   foreach ($bouncedRecipients as $bouncedRecipient) {
+                       $bounceCode = array_key_exists('diagnosticCode', $bouncedRecipient) ? $bouncedRecipient['diagnosticCode'] : 'unknown';
+                       $this->transportCallback->addFailureByAddress($bouncedRecipient['emailAddress'], $bounceCode, DoNotContact::BOUNCED, $emailId);
+                      $this->logger->debug("Mark email '" . $bouncedRecipient['emailAddress'] . "' as bounced, reason: " . $bounceCode);
+                    }
+                  }
+                } elseif ($notificationType === 'Complaint') {
+//		    $message = json_decode($payload['Message'], true);
+                    $emailId = null;
                     if (isset($payload['mail']['headers'])) {
                         foreach ($payload['mail']['headers'] as $header) {
                             if ('X-EMAIL-ID' === $header['name']) {
                                 $emailId = $header['value'];
                             }
                         }
-                    }
-
+		    }
                     // Get bounced recipients in an array
-                    $bouncedRecipients = $payload['bounce']['bouncedRecipients'];
-                    foreach ($bouncedRecipients as $bouncedRecipient) {
-                        $bounceCode = array_key_exists('diagnosticCode', $bouncedRecipient) ? $bouncedRecipient['diagnosticCode'] : 'unknown';
-                        $this->transportCallback->addFailureByAddress($bouncedRecipient['emailAddress'], $bounceCode, DoNotContact::BOUNCED, $emailId);
-                        $this->logger->debug("Mark email '" . $bouncedRecipient['emailAddress'] . "' as bounced, reason: " . $bounceCode);
-                    }
+                    $complaintRecipients = $message['complaint']['complainedRecipients'];
+                    foreach ($complaintRecipients as $complaintRecipient) {
+			$bounceCode = array_key_exists('complaintFeedbackType', $complaintRecipient) ? $complaintRecipient['complaintFeedbackType'] : 'unknown';
+                        $this->transportCallback->addFailureByAddress($complaintRecipient['emailAddress'], $bounceCode, DoNotContact::BOUNCED, $emailId);
+                        $this->logger->debug("Mark email '" . $complaintRecipient['emailAddress'] . "' has complained, reason: " . $bounceCode);
+                }
+                break;
+                } else {
+                    $this->logger->error('Unsupported notification type: ' . $notificationType);
                 }
                 break;
             default:
-                $this->logger->warning("Received SES webhook of type '$payload[Type]' but couldn't understand payload");
-                $this->logger->debug('SES webhook payload: ' . json_encode($payload));
+                // $this->logger->warning("Received SES webhook of type '$payload[Type]' but couldn't understand payload");
+                $this->logger->warning('SES webhook payload: ' . json_encode($payload));
                 break;
         }
     }

@@ -3,6 +3,8 @@ forked and fixed from https://github.com/hachther/mauticawsmailer
 Mautic 5 SNS plugin.
 
 1. Download in your Plugins folder and rename to MauticAWSBundle
+2. Set SNS Bounce and Complaint feedback loops to:
+https://yourmauticurl.com/mailer/amazon/callback
 
 Functions:
 

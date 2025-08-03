@@ -1,4 +1,5 @@
 forked and fixed from https://github.com/jos0405/mauticawsmailer
+
 Mautic 5 SNS plugin.
 
 1. Download in your Plugins folder and rename to MauticAWSBundle

@@ -15,8 +15,3 @@ Functions:
 3. Complaint handling
    - Complaints are also classified as DNC, with the reason being passed from "complaintFeedbackType" value. If not captured, then 'abuse'
   
-Watch my channel for updates:
-https://www.youtube.com/@keeponautomating
-
-Check my website:
-https://joeykeller.com

@@ -1,4 +1,4 @@
-forked and fixed from https://github.com/hachther/mauticawsmailer
+forked and fixed from [https://github.com/hachther/mauticawsmailer](https://github.com/jos0405/mauticawsmailer)
 
 Mautic 5 SNS plugin.
 
